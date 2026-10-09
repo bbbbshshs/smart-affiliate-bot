@@ -4,7 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Pega as variáveis de ambiente configuradas no GitHub
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -29,35 +30,34 @@ def enviar_mensagem_telegram(texto):
 def buscar_ofertas():
     # Configuração do Chrome para rodar no Linux (GitHub Actions)
     chrome_options = Options()
-    chrome_options.add_argument('--headless') # Roda sem interface gráfica
+    chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--window-size=1920,1080')
 
+    # O webdriver-manager baixa automaticamente o ChromeDriver compatível
+    service = Service(ChromeDriverManager().install())
+    
     # Inicializa o navegador
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     
     ofertas_encontradas = []
 
     try:
         # Aqui você coloca o site que deseja raspar. 
         # Exemplo genérico: buscando em uma página de promoções.
-        # Substitua pela URL real da loja que você quer monitorar.
-        url_alvo = "https://www.shopee.com.br/" # Exemplo
+        url_alvo = "https://www.shopee.com.br/"
         driver.get(url_alvo)
-        time.sleep(5) # Espera a página carregar
+        time.sleep(5)
 
-        # Exemplo de extração (isso depende da estrutura do site alvo)
+        # Exemplo de extração (depende da estrutura do site alvo)
         # Neste exemplo, apenas simulamos que encontramos um produto.
-        # Você precisaria inspecionar o site alvo para pegar as classes CSS corretas.
-        
-        # Simulação de oferta encontrada para testar o fluxo:
         ofertas_encontradas.append({
             "titulo": "Sérum Facial Anti-Idade",
             "preco_original": "R$ 89,90",
             "preco_desconto": "R$ 29,90",
-            "link": AFFILIATE_LINK # Usa o link de afiliado configurado
+            "link": AFFILIATE_LINK
         })
 
     except Exception as e:
@@ -84,7 +84,7 @@ def main():
             f"🛒 <a href='{oferta['link']}'>Clique aqui para comprar</a>"
         )
         enviar_mensagem_telegram(mensagem)
-        time.sleep(2) # Pequena pausa entre mensagens
+        time.sleep(2)
 
 if __name__ == "__main__":
     main()
