@@ -1,92 +1,84 @@
 import os
-import time
 import random
 import requests
 import xml.etree.ElementTree as ET
 
-# Pega as variáveis de ambiente configuradas no GitHub
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-SHOPEE_AFFILIATE_ID = "18352440043"  # Seu ID de Afiliado da Shopee
+SHOPEE_AFFILIATE_ID = "18352440043"
 
-def enviar_mensagem_telegram(texto, imagem_url=None):
-    """Envia uma mensagem de texto (e opcionalmente uma foto) para o Telegram."""
-    if imagem_url:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-        payload = {
-            "chat_id": CHAT_ID,
-            "photo": imagem_url,
-            "caption": texto,
-            "parse_mode": "HTML"
-        }
-    else:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": CHAT_ID,
-            "text": texto,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": False
-        }
-    
+# Lista de feeds RSS confiáveis (em ordem de prioridade)
+FEEDS_RSS = [
+    "https://www.hardmob.com.br/forums/407-Promo%C3%A7%C3%B5es.rss",
+    "https://www.pelando.com.br/rss/feed.xml",
+    "https://www.promobit.com.br/rss/",
+]
+
+def enviar_mensagem_telegram(texto):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": texto,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": False
+    }
     try:
         response = requests.post(url, data=payload, timeout=20)
         response.raise_for_status()
         print("✅ Mensagem enviada com sucesso!")
+        return True
     except Exception as e:
         print(f"❌ Erro ao enviar mensagem: {e}")
+        return False
 
 def gerar_link_afiliado_shopee(url_produto):
     """Adiciona seu ID de afiliado a um link da Shopee."""
     if url_produto and "shopee.com.br" in url_produto:
         separador = "&" if "?" in url_produto else "?"
         return f"{url_produto}{separador}af_id={SHOPEE_AFFILIATE_ID}"
-    return url_produto
+    return None
 
-def buscar_ofertas_rss():
-    """Busca ofertas no feed RSS do Promobit."""
-    # Feed RSS de ofertas do Promobit
-    url_rss = "https://www.promobit.com.br/feed/"
-    
+def buscar_ofertas_feed(url_rss):
+    """Busca ofertas em um feed RSS específico."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
     try:
-        print(f"📡 Buscando ofertas em: {url_rss}")
+        print(f"📡 Tentando: {url_rss}")
         response = requests.get(url_rss, headers=headers, timeout=20)
         response.raise_for_status()
         
-        # Faz o parse do XML do RSS
         root = ET.fromstring(response.content)
-        
-        # Procura por todos os itens do feed
         ofertas = []
-        for item in root.findall('.//item')[:10]:  # Pega os 10 primeiros
+        
+        for item in root.findall('.//item'):
             try:
-                titulo = item.find('title').text if item.find('title') is not None else "Oferta"
+                titulo = item.find('title').text if item.find('title') is not None else None
                 link = item.find('link').text if item.find('link') is not None else None
-                descricao = item.find('description').text if item.find('description') is not None else ""
                 
-                if not link:
+                if not titulo or not link:
                     continue
                 
-                # Se for um link da Shopee, gera o link de afiliado
-                link_final = gerar_link_afiliado_shopee(link)
+                # Verifica se o link é da Shopee
+                link_afiliado = gerar_link_afiliado_shopee(link)
+                
+                # Se não for Shopee, pula
+                if not link_afiliado:
+                    continue
                 
                 ofertas.append({
-                    "titulo": titulo,
-                    "link": link_final,
-                    "descricao": descricao[:100] + "..." if len(descricao) > 100 else descricao
+                    "titulo": titulo.strip(),
+                    "link": link_afiliado
                 })
-            except Exception as e:
-                print(f"Erro ao processar um item: {e}")
+            except Exception:
                 continue
         
-        print(f"✅ Encontradas {len(ofertas)} ofertas no feed.")
+        print(f"   → {len(ofertas)} ofertas da Shopee encontradas neste feed.")
         return ofertas
         
     except Exception as e:
-        print(f"❌ Erro ao buscar o RSS: {e}")
+        print(f"   ❌ Erro neste feed: {e}")
         return []
 
 def main():
@@ -94,15 +86,23 @@ def main():
     print("🚀 Iniciando busca automática de ofertas...")
     print("=" * 50)
     
-    ofertas = buscar_ofertas_rss()
+    todas_ofertas = []
     
-    if not ofertas:
-        print("❌ Nenhuma oferta encontrada. Nada será postado.")
+    for url_feed in FEEDS_RSS:
+        ofertas = buscar_ofertas_feed(url_feed)
+        todas_ofertas.extend(ofertas)
+        
+        # Se já encontrou 5 ou mais ofertas, para de buscar
+        if len(todas_ofertas) >= 5:
+            break
+    
+    if not todas_ofertas:
+        print("❌ Nenhuma oferta da Shopee encontrada. Nada será postado.")
         return
-
+    
     # Pega uma oferta aleatória
-    oferta = random.choice(ofertas)
-    print(f"🎯 Oferta escolhida: {oferta['titulo']}")
+    oferta = random.choice(todas_ofertas)
+    print(f"🎯 Oferta escolhida: {oferta['titulo'][:80]}")
     
     mensagem = (
         f"🔥 <b>ACHADINHO ENCONTRADO!</b> 🔥\n\n"
