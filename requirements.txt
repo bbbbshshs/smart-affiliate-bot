@@ -1,7 +1,5 @@
 requests
-pandas
+beautifulsoup4
+lxml
 selenium
 webdriver-manager
-beautifulsoup4
-pillow
-pyperclip
