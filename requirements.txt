@@ -5,5 +5,4 @@ webdriver-manager
 beautifulsoup4
 pillow
 pyperclip
-pywin32
 python-dotenv
