@@ -2,10 +2,8 @@ name: Bot de Ofertas Afiliado
 
 on:
   schedule:
-    # Executa a cada 6 horas (meia-noite, 6h, 12h, 18h UTC).
-    # O horário é em UTC (3 horas a mais que o horário de Brasília).
+    # Executa a cada 6 horas
     - cron: '0 */6 * * *'
-  # Permite que você execute o bot manualmente para testes.
   workflow_dispatch:
 
 jobs:
@@ -16,10 +14,16 @@ jobs:
     - name: Checkout do repositório
       uses: actions/checkout@v4
 
+    - name: Setup Chrome e ChromeDriver
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: stable
+        install-chromedriver: true
+
     - name: Configurar Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.10'
 
     - name: Instalar dependências
       run: |
